@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Configurações do Usuário & Chaves de API (NÃO ENVIAR PARA O GITHUB)
+config.json
+estudos.db
+*.db
+*.sqlite3
+error.log
+
+# Arquivos Temporários de Áudio
+*.mp3
+*.wav
+
+# Exportações do Usuário
+*.csv
+
+# IDE / Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema Operacional
+.DS_Store
+desktop.ini
+Thumbs.db
