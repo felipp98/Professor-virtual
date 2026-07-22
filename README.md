@@ -7,10 +7,12 @@ O **Language Buddy** é um aplicativo desktop completo e moderno desenvolvido em
 ## 🚀 Funcionalidades Principais
 
 ### 1. 🎙️ Professor Alex (Mentor Virtual Interativo de IA)
-- **Modo Voz & Texto**: Converse com o Professor Alex por microfone em áudio bilingue (PT-BR / EN-US) ou por texto.
+- **Modo Conversa Viva (Hands-Free)**: Alternador no estilo ChatGPT Voice que escuta você automaticamente após cada fala do professor, sem precisar clicar repetidamente no botão do microfone.
+- **Reconhecimento de Voz Inteligente**: Suporta transcrição ultra-precisa offline com `faster-whisper` (Local) e fallback automático para a API do Google.
 - **Voz Neural Realista**: Fala com pronúncia fluida em Português e Inglês usando sintetizador neural (`edge-tts` / `gTTS`) com ajuste de velocidade (**1.0x**, **1.25x**, **1.5x**).
 - **Dicas de Articulação Língua/Boca**: Cada explicação traz uma dica física prática da posição da língua/boca e macetes mentais para destravar a fala.
 - **Storytelling de Escritório**: Vocabulário contextualizado com reuniões reais, daily standups, prazos, pull requests e e-mails de trabalho.
+
 
 ### 2. 🔎 Consultar IA ("Abrasileirar Termos")
 - Tradução imediata e contextualizada para o ambiente corporativo.
@@ -38,7 +40,33 @@ O **Language Buddy** é um aplicativo desktop completo e moderno desenvolvido em
 
 ### 6. ⚙️ Painel de Configurações
 - Gerenciamento de chave de API do **OpenRouter** diretamente na interface gráfica.
-- Suporte a modelos de IA gratuitos ou de alta performance (ex: `google/gemini-2.5-flash:free`, `meta-llama/llama-3.3-70b-instruct:free`).
+- Suporte a modelos de IA gratuitos ou de alta performance (ex: `meta-llama/llama-3.3-70b-instruct:free`, `google/gemini-2.0-flash-exp:free`).
+
+### 7. ⌨️ Atalhos de Teclado Globais
+- **`Esc`**: Interrompe imediatamente qualquer áudio ou voz do professor em reprodução.
+- **`Ctrl + F`**: Alterna para a aba de **Decks de Estudo** e foca automaticamente no campo de busca de PDFs.
+- **`Enter`**: Envia mensagens no chat do professor ou dispara consultas na busca da IA.
+
+---
+
+## 🧪 Testes Automatizados
+
+Para rodar a suíte de testes unitários dos serviços (banco SQLite, síntese de áudio, parsers de IA e leitor PDF):
+
+```bash
+python -m unittest tests/test_services.py
+```
+
+---
+
+## 📦 Gerar Executável Standalone (.exe)
+
+Para gerar uma versão executável em um único arquivo `.exe` para Windows:
+
+```bash
+python scripts/build_exe.py
+```
+O arquivo `.exe` será gerado na pasta `dist/LanguageBuddy.exe`.
 
 ---
 
@@ -104,12 +132,25 @@ Desenvolvimento - Ingles/
 │   ├── config.py              # Leitura e escrita de configurações (config.json)
 │   ├── database.py            # Gestão do banco SQLite (estudos.db) e exportação CSV
 │   ├── docs_service.py        # Leitura e busca de textos em PDFs (pypdf)
+│   ├── logger.py              # Módulo centralizado de logging (app.log e console)
 │   └── teacher_service.py     # Lógica do Professor Alex e parser de respostas JSON
 │
+├── views/                     # Componentes visuais modulares da interface CustomTkinter
+│   ├── teacher_view.py        # Aba do Professor Virtual (Voz e Chat)
+│   ├── ia_view.py             # Aba de Consulta à IA (Abrasileirar Termos)
+│   ├── caderno_view.py        # Aba do Caderno de Estudos (CRUD & CSV)
+│   ├── docs_view.py           # Aba do Leitor e Buscador de PDFs
+│   ├── pomodoro_view.py       # Aba do Timer Pomodoro
+│   └── config_view.py         # Aba de Configurações de API, Modelo e Voz Neural
+│
+├── tests/                     # Testes automatizados do sistema
+│   └── test_services.py       # Suíte de testes unitários
+│
 ├── scripts/                   # Scripts auxiliares do projeto
+│   ├── build_exe.py           # Script para compilação do executável (.exe)
 │   └── gerar_mapa_estudos.py  # Script gerador de mapas de estudo
 │
-├── app.py                     # Interface gráfica principal (CustomTkinter, abas e eventos)
+├── app.py                     # Inicializador principal da aplicação Desktop
 ├── requirements.txt           # Lista de dependências Python
 ├── .gitignore                 # Arquivos ignorados pelo Git (chaves de API, banco local, venv)
 └── README.md                  # Documentação do projeto

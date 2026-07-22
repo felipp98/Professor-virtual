@@ -1,6 +1,7 @@
 import requests
 import json
 from .config import load_config
+from .logger import logger
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -86,7 +87,7 @@ def consultar_openrouter(termo: str) -> dict:
                 }
             else:
                 ultimo_erro = f"Modelo {modelo} retornou HTTP {response.status_code}: {response.text}"
-                print(ultimo_erro)
+                logger.warning(ultimo_erro)
 
         except json.JSONDecodeError:
             # Caso a IA não responda em JSON válido

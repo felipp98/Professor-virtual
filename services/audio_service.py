@@ -3,6 +3,8 @@ import re
 import tempfile
 import threading
 import time
+from .logger import logger
+from .config import load_config
 
 # Oculta mensagem do Pygame e evita inicializar drivers de tela (apenas áudio)
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -39,7 +41,7 @@ try:
     import asyncio
     HAS_EDGE_TTS = True
 except Exception as e:
-    print(f"edge-tts não inicializado: {e}")
+    logger.warning(f"edge-tts não inicializado: {e}")
     HAS_EDGE_TTS = False
 
 # Helper para carregamento preguiçoso (lazy loading) do Pygame e mixer
@@ -52,7 +54,7 @@ def _obter_pygame():
             import pygame
             _PYGAME_MODULE = pygame
         except Exception as e:
-            print(f"Pygame não disponível: {e}")
+            logger.warning(f"Pygame não disponível: {e}")
             _PYGAME_MODULE = False
     return _PYGAME_MODULE if _PYGAME_MODULE is not False else None
 
@@ -64,7 +66,7 @@ def _garantir_mixer_init():
                 pg.mixer.init()
             return True
         except Exception as e:
-            print(f"Erro ao inicializar mixer do Pygame: {e}")
+            logger.error(f"Erro ao inicializar mixer do Pygame: {e}")
             return False
     return False
 
@@ -74,7 +76,7 @@ try:
     from gtts import gTTS
     HAS_GTTS = True
 except Exception as e:
-    print(f"gTTS não inicializado: {e}")
+    logger.warning(f"gTTS não inicializado: {e}")
     HAS_GTTS = False
 
 # Tenta carregar SpeechRecognition e PyAudio para microfone
@@ -83,8 +85,29 @@ try:
     import speech_recognition as sr
     HAS_STT = True
 except Exception as e:
-    print(f"SpeechRecognition não inicializado: {e}")
+    logger.warning(f"SpeechRecognition não inicializado: {e}")
     HAS_STT = False
+
+# Tenta carregar faster-whisper para transcrição local ultra-rápida e offline
+HAS_WHISPER = False
+_WHISPER_MODEL = None
+_WHISPER_LOCK = threading.Lock()
+
+def _obter_modelo_whisper():
+    global HAS_WHISPER, _WHISPER_MODEL
+    if _WHISPER_MODEL is None:
+        with _WHISPER_LOCK:
+            if _WHISPER_MODEL is None:
+                try:
+                    from faster_whisper import WhisperModel
+                    logger.info("Inicializando modelo Whisper local (base - CPU)...")
+                    _WHISPER_MODEL = WhisperModel("base", device="cpu", compute_type="int8")
+                    HAS_WHISPER = True
+                except Exception as e:
+                    logger.warning(f"faster-whisper não disponível ({e}). Usando fallback Google STT.")
+                    _WHISPER_MODEL = False
+                    HAS_WHISPER = False
+    return _WHISPER_MODEL if _WHISPER_MODEL is not False else None
 
 class AudioService:
 
@@ -93,10 +116,15 @@ class AudioService:
         self._is_speaking = False
         self._stop_requested = False
         self.velocidade = 1.0  # Velocidade padrão (1.0, 1.25, 1.5)
+        self.conversa_viva_ativa = False  # Modo Conversa Viva / Hands-free
 
     @property
     def is_speaking(self) -> bool:
         return self._is_speaking
+
+    @property
+    def stop_requested(self) -> bool:
+        return self._stop_requested
 
     def parar_fala(self):
         """Interrompe a reprodução de áudio atual."""
@@ -132,10 +160,10 @@ class AudioService:
         temp_files = []
 
         try:
-            if not HAS_GTTS:
-                print("Recurso de áudio não disponível (pygame ausente).")
+            if not HAS_GTTS and not HAS_EDGE_TTS:
+                logger.warning("Recurso de áudio não disponível (edge-tts e gtts ausentes).")
                 self._is_speaking = False
-                if callback_fim:
+                if callback_fim and not self._stop_requested:
                     callback_fim()
                 return
 
@@ -153,7 +181,7 @@ class AudioService:
             texto_completo = ". ".join(partes_fala).strip()
             if not texto_completo:
                 self._is_speaking = False
-                if callback_fim:
+                if callback_fim and not self._stop_requested:
                     callback_fim()
                 return
 
@@ -166,22 +194,26 @@ class AudioService:
 
             gerado_com_sucesso = False
 
-            # 1. Tenta gerar áudio contínuo com edge-tts (Voz Neural Masculina Antonio)
+            # Carrega a voz configurada pelo usuário (padrão AntonioNeural)
+            cfg = load_config()
+            voz_neural = cfg.get("voice", "pt-BR-AntonioNeural")
+
+            # 1. Tenta gerar áudio contínuo com edge-tts (Voz Neural Selecionada)
             if HAS_EDGE_TTS:
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
-                        communicate = edge_tts.Communicate(texto_completo, "pt-BR-AntonioNeural", rate=rate_str)
+                        communicate = edge_tts.Communicate(texto_completo, voz_neural, rate=rate_str)
                         loop.run_until_complete(communicate.save(path))
                         gerado_com_sucesso = True
                     finally:
                         loop.close()
                 except Exception as e_edge:
-                    print(f"Fallback edge-tts -> gtts ({e_edge})")
+                    logger.warning(f"Fallback edge-tts ({voz_neural}) -> gtts ({e_edge})")
 
             # 2. Fallback para gTTS se edge-tts falhar
-            if not gerado_com_sucesso:
+            if not gerado_com_sucesso and HAS_GTTS:
                 tts = gTTS(text=texto_completo, lang='pt', slow=False)
                 tts.save(path)
 
@@ -190,7 +222,7 @@ class AudioService:
 
             # Toca o áudio único do início ao fim sem interrupções
             if not _garantir_mixer_init():
-                print("Não foi possível inicializar o mixer de áudio.")
+                logger.error("Não foi possível inicializar o mixer de áudio.")
                 return
 
             pg = _obter_pygame()
@@ -207,31 +239,37 @@ class AudioService:
             if not self._stop_requested:
                 time.sleep(0.4)
 
-            pg.mixer.music.unload()
-
         except Exception as e:
-            print(f"Erro na execução da fala por áudio: {e}")
+            logger.error(f"Erro na execução da fala por áudio: {e}")
 
         finally:
-            # Limpa arquivos temporários gerados
+            pg = _obter_pygame()
+            if pg and pg.mixer.get_init():
+                try:
+                    pg.mixer.music.stop()
+                    pg.mixer.music.unload()
+                except Exception:
+                    pass
+
+            # Limpeza garantida dos arquivos temporários de áudio
             for p in temp_files:
                 try:
                     if os.path.exists(p):
                         os.remove(p)
-                except Exception:
-                    pass
+                except Exception as e_clean:
+                    logger.warning(f"Falha ao remover arquivo temporário de áudio '{p}': {e_clean}")
 
             self._is_speaking = False
             if callback_fim and not self._stop_requested:
                 try:
                     callback_fim()
                 except Exception as cb_err:
-                    print(f"Erro no callback de áudio: {cb_err}")
+                    logger.error(f"Erro no callback de áudio: {cb_err}")
 
     def ouvir_microfone(self, idioma: str = "auto", timeout_escrita: int = 7) -> dict:
         """
         Escuta o microfone do usuário e retorna a transcrição inteligente.
-        Suporta detecção bilingue (pt-BR e en-US) para alunos brasileiros aprendendo inglês.
+        Suporta Whisper local (faster-whisper) com fallback automático para Google Speech API.
         """
         if not HAS_STT:
             return {
@@ -246,19 +284,47 @@ class AudioService:
         try:
             with sr.Microphone() as source:
                 recognizer.adjust_for_ambient_noise(source, duration=0.8)
-                print("Escutando microfone...")
+                logger.info("Escutando microfone...")
                 audio = recognizer.listen(source, timeout=timeout_escrita, phrase_time_limit=10)
 
+            # 1. Tenta transcrição local offline e ultra precisa com faster-whisper
+            whisper_model = _obter_modelo_whisper()
+            if whisper_model:
+                temp_wav_path = None
+                try:
+                    wav_data = audio.get_wav_data()
+                    fd, temp_wav_path = tempfile.mkstemp(suffix=".wav")
+                    os.close(fd)
+                    with open(temp_wav_path, "wb") as f:
+                        f.write(wav_data)
+
+                    segments, info = whisper_model.transcribe(temp_wav_path, beam_size=1)
+                    texto_transcrito = " ".join([seg.text.strip() for seg in segments if seg.text]).strip()
+                    if texto_transcrito:
+                        return {
+                            "sucesso": True,
+                            "texto": texto_transcrito,
+                            "idioma_usado": info.language,
+                            "engine": "Whisper (Local)"
+                        }
+                except Exception as e_w:
+                    logger.warning(f"Fallback Whisper -> Google STT ({e_w})")
+                finally:
+                    if temp_wav_path and os.path.exists(temp_wav_path):
+                        try:
+                            os.remove(temp_wav_path)
+                        except Exception as e_del:
+                            logger.warning(f"Falha ao deletar temporário WAV '{temp_wav_path}': {e_del}")
+
+            # 2. Fallback para Google Speech Recognition se Whisper não transcrever ou não estiver presente
             texto_pt = None
             texto_en = None
 
-            # Tenta reconhecer em Português (pt-BR)
             try:
                 texto_pt = recognizer.recognize_google(audio, language="pt-BR")
             except Exception:
                 pass
 
-            # Tenta reconhecer em Inglês (en-US)
             try:
                 texto_en = recognizer.recognize_google(audio, language="en-US")
             except Exception:
@@ -270,36 +336,35 @@ class AudioService:
                     "erro": "Não foi possível compreender o áudio. Tente falar novamente com mais clareza."
                 }
 
-            # Palavras-chave típicas do aluno brasileiro interagindo com o professor em Português
             palavras_chave_pt = [
                 "bora", "começar", "comecar", "sim", "não", "nao", "professor", "aula", 
                 "dúvida", "duvida", "ajuda", "olá", "ola", "bom", "boa", "entendi", 
                 "como", "falar", "dizer", "significa", "exemplo", "meu", "nome", "chamo", "estudo"
             ]
 
-            # Se identificou em PT e o texto contém palavras típicas de interação em português
             if texto_pt:
                 texto_pt_lower = texto_pt.lower()
                 if any(p in texto_pt_lower for p in palavras_chave_pt) or not texto_en or idioma == "pt-BR":
                     return {
                         "sucesso": True,
                         "texto": texto_pt,
-                        "idioma_usado": "pt-BR"
+                        "idioma_usado": "pt-BR",
+                        "engine": "Google STT"
                     }
 
-            # Caso contrário, se identificou em EN e parece um termo ou frase em inglês
             if texto_en:
                 return {
                     "sucesso": True,
                     "texto": texto_en,
-                    "idioma_usado": "en-US"
+                    "idioma_usado": "en-US",
+                    "engine": "Google STT"
                 }
 
-            # Fallback final para texto_pt se existir
             return {
                 "sucesso": True,
                 "texto": texto_pt,
-                "idioma_usado": "pt-BR"
+                "idioma_usado": "pt-BR",
+                "engine": "Google STT"
             }
 
         except sr.WaitTimeoutError:

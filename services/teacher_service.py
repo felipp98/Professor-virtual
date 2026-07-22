@@ -3,6 +3,7 @@ import os
 import re
 import requests
 from .config import load_config
+from .logger import logger
 from .database import obter_perfil_aluno, salvar_perfil_aluno, registrar_progresso_aula
 from .docs_service import ler_pdf, listar_documentos
 
@@ -14,22 +15,24 @@ PERSONALIDADE & ATITUDE HUMANA:
 1. Tom de Mentoria Calorosa: Você fala como um colega sênior de TI e mentor de carreira que se importa de verdade com o aluno. Use saudações humanas reais (ex: "Show de bola!", "Fala dev!", "Mandou bem demais!", "Essa é clássica em reuniões com gringo!").
 2. Storytelling Prático de Escritório: Sempre contextualize o vocabulário com situações reais do dia a dia (Daily standups, alinhamento com POs, pull requests, prazos, e-mails ou reuniões internacionais).
 3. Micro-doses Faladas (Máximo 2 a 3 frases por áudio): Nunca faça o aluno ler um bloco gigante de texto. Explique um conceito por vez de forma leve, fluida e falada ("fala_audio_pt").
-4. Ponte de Pronúncia Abrasileirada & Dica Física da Língua/Boca: 
-   - Apresente o termo em inglês e SEMPRE ensine o "jeitão brasileiro" de pronunciar ("pronuncia_abrasileirada") em sílabas fonéticas maiúsculas (ex: 'Schedule' -> "SKÉ-djiul", 'Framework' -> "FRÉIM-uôrk", 'Deadline' -> "DÉD-láin").
+4. TRADUÇÃO EM PORTUGUÊS OBRIGATÓRIA: SEMPRE que apresentar qualquer palavra, expressão ou frase em inglês ("termo_en"), você DEVE obrigatoriamente ensinar a sua TRADUÇÃO direta e contextualizada em Português do Brasil no campo ("traducao_pt") e também destacá-la no texto da explicação ("texto_chat"). Afinal, o aluno precisa entender perfeitamente o significado em português!
+5. Ponte de Pronúncia Abrasileirada & Dica Física da Língua/Boca: 
+   - Apresente o termo em inglês, a tradução em português e SEMPRE ensine o "jeitão brasileiro" de pronunciar ("pronuncia_abrasileirada") em sílabas fonéticas maiúsculas (ex: 'Schedule' -> "SKÉ-djiul", 'Framework' -> "FRÉIM-uôrk", 'Deadline' -> "DÉD-láin").
    - OBRIGATÓRIO: Forneça uma **Dica Prática da Língua/Boca & Macete Mental** ("dica_articulacao") ensinando a posição exata da boca/língua ou um macete mental de associação para facilitar a fala (ex: "👅 Dica da Língua: Posicione a ponta da língua no céu da boca sem encostar, tipo o R caipira...", "👅 Macete: Lembra de falar 'esquece', para no 'ESKÉ' e emenda com 'djiul'...").
-5. Feedback Empático e Construtivo: Se o aluno errar ou se enrolar ao falar no microfone, NUNCA seja frio ou puramente corretivo. Acolha com carinho (ex: "Sem estresse! Essa palavra trava a língua de muita gente de primeira. O segredo é posicionar a língua assim... Tenta de novo comigo!").
-6. Checagem de Ritmo: Faça perguntas de checagem humana ("Faz sentido?", "Conseguiu pegar a sacada?", "Quer tentar de novo?") antes de liberar a resposta.
+6. Feedback Empático e Construtivo: Se o aluno errar ou se enrolar ao falar no microfone, NUNCA seja frio ou puramente corretivo. Acolha com carinho.
+7. Checagem de Ritmo: Faça perguntas de checagem humana ("Faz sentido?", "Conseguiu pegar a sacada?", "Quer tentar de novo?") antes de liberar a resposta.
 
 FORMATO DE RESPOSTA (OBRIGATÓRIO):
 REGRA CRÍTICA: Comece sua resposta IMEDIATAMENTE com o caractere '{'. NUNCA escreva raciocínio prévio, pensamentos, "We need to output", "We have student's response" ou textos de planejamento em inglês antes ou depois do JSON.
 
 Retorne APENAS um objeto JSON válido (sem marcação de bloco ```json) com a seguinte estrutura:
 {
-  "fala_audio_pt": "Explicação falada curta, humana, empática e encorajadora em português (2 a 3 frases no máximo, incluindo a dica prática de onde colocar a língua ou boca).",
-  "termo_en": "Palavra ou expressão em inglês foco da lição (ex: Schedule).",
-  "pronuncia_abrasileirada": "Pronúncia fonética abrasileirada em maiúsculas (ex: SKÉ-djiul).",
+  "fala_audio_pt": "Explicação falada curta, humana, empática e encorajadora em português (2 a 3 frases no máximo, mencionando a tradução em português e a dica da boca).",
+  "termo_en": "Palavra ou expressão em inglês foco da lição (ex: What do you do?).",
+  "traducao_pt": "Tradução direta e contextualizada em português (ex: O que você faz? / Qual é sua profissão?).",
+  "pronuncia_abrasileirada": "Pronúncia fonética abrasileirada em maiúsculas (ex: WÓT du iu DÚ).",
   "dica_articulacao": "Macete físico da língua/boca ou associação mental simples para lembrar na hora de falar.",
-  "texto_chat": "Texto bem formatado em Markdown com emojis, a dica prática da língua/boca, dicas práticas de escritório e destaques visuais para o chat.",
+  "texto_chat": "Texto bem formatado em Markdown com emojis, destacando o Termo em Inglês, a TRADUÇÃO EM PORTUGUÊS (ex: 🇧🇷 Tradução: O que você faz?), a dica da língua/boca e dicas de escritório.",
   "modo_resposta": "voz",
   "instrucao_aluno": "Instrução calorosa para a vez do aluno (ex: 'Pressione o microfone e diga em voz alta: ...')"
 }
@@ -52,7 +55,10 @@ def extrair_json_resposta(content: str) -> dict:
 
     # 3. Tenta carregar JSON puro
     try:
-        return json.loads(content_json)
+        dados = json.loads(content_json)
+        if "traducao" in dados and "traducao_pt" not in dados:
+            dados["traducao_pt"] = dados["traducao"]
+        return dados
     except Exception:
         pass
 
@@ -60,16 +66,22 @@ def extrair_json_resposta(content: str) -> dict:
     idx_fim = content_json.rfind('}')
     if idx_fim != -1:
         try:
-            return json.loads(content_json[:idx_fim+1])
+            dados = json.loads(content_json[:idx_fim+1])
+            if "traducao" in dados and "traducao_pt" not in dados:
+                dados["traducao_pt"] = dados["traducao"]
+            return dados
         except Exception:
             pass
 
     # 5. Se o JSON foi cortado/truncado no meio, extrai os campos individualmente via REGEX
     dados_extraidos = {}
-    for campo in ["fala_audio_pt", "termo_en", "pronuncia_abrasileirada", "dica_articulacao", "texto_chat", "modo_resposta", "instrucao_aluno"]:
+    for campo in ["fala_audio_pt", "termo_en", "traducao_pt", "traducao", "pronuncia_abrasileirada", "dica_articulacao", "texto_chat", "modo_resposta", "instrucao_aluno"]:
         m = re.search(rf'\"{campo}\"\s*:\s*\"((?:[^\"]|\\\")*)\"', content_json)
         if m:
             dados_extraidos[campo] = m.group(1).replace("\\n", "\n").replace('\\"', '"')
+    
+    if "traducao" in dados_extraidos and "traducao_pt" not in dados_extraidos:
+        dados_extraidos["traducao_pt"] = dados_extraidos["traducao"]
             
     return dados_extraidos
 
@@ -136,6 +148,7 @@ class TeacherService:
             return {
                 "fala_audio_pt": "Fala dev! Que prazer ter você por aqui! Eu sou o Professor Alex, seu mentor de inglês para a área de tecnologia. Para começarmos nossa parceria, como eu posso te chamar?",
                 "termo_en": "Welcome aboard!",
+                "traducao_pt": "Bem-vindo a bordo!",
                 "pronuncia_abrasileirada": "UÉL-kâm a-BÔRD",
                 "texto_chat": "### 🎓 Fala Dev! Bem-vindo à sua Mentoria de Inglês!\n\nEu sou o **Professor Alex**, seu mentor digital focado em destravar seu inglês para reuniões, e-mails e oportunidades internacionais.\n\nAntes de abrirmos nosso **Mapa de Estudos em PDF**, me conta: **como eu posso te chamar?**",
                 "modo_resposta": "texto",
@@ -147,6 +160,7 @@ class TeacherService:
         return {
             "fala_audio_pt": f"Fala {nome}! Que bom te ver de volta! Tô com seu Mapa de Estudos aberto aqui. Bora continuar nossa aula de onde paramos?",
             "termo_en": f"Let's crush it today, {nome}!",
+            "traducao_pt": f"Vamos arrebentar hoje, {nome}!",
             "pronuncia_abrasileirada": "LÉTS CRÂCH ÍT tu-DÉI",
             "texto_chat": f"### 🎓 Fala, {nome}! Tudo certo por aí?\n\nQue bom ter você de volta! Tô com o seu **Mapa de Estudos em PDF** aberto aqui no ponto.\n\nBora pra mais uma sessão? Me diga se quer continuar o fluxo ou escolher um tema!",
             "modo_resposta": "voz",
@@ -216,7 +230,8 @@ Elabore a próxima micro-lição curta com explicação falada em português, pr
             "X-Title": "Language Buddy Teacher"
         }
 
-        model = config.get("model", "google/gemini-2.5-flash-lite")
+        modelos_para_testar = [config.get("model")] + [m for m in config.get("fallback_models", []) if m != config.get("model")]
+        ultimo_erro = ""
 
         messages = [
             {"role": "system", "content": TEACHER_SYSTEM_PROMPT}
@@ -224,74 +239,78 @@ Elabore a próxima micro-lição curta com explicação falada em português, pr
             {"role": "user", "content": prompt_usuario}
         ]
 
-        payload = {
-            "model": model,
-            "messages": messages,
-            "temperature": 0.3,
-            "max_tokens": 1200
-        }
+        for model in modelos_para_testar:
+            if not model:
+                continue
+            try:
+                payload = {
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.3,
+                    "max_tokens": 1200
+                }
+                response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=25)
+                if response.status_code == 200:
+                    res_data = response.json()
+                    content = res_data["choices"][0]["message"]["content"].strip()
 
-        try:
-            response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=25)
-            if response.status_code == 200:
-                res_data = response.json()
-                content = res_data["choices"][0]["message"]["content"].strip()
+                    parsed = extrair_json_resposta(content)
+                    if not parsed:
+                        parsed = {
+                            "fala_audio_pt": "Vamos continuar nossa aula!",
+                            "termo_en": "",
+                            "pronuncia_abrasileirada": "",
+                            "texto_chat": "Vamos continuar nossa lição! Como você gostaria de prosseguir?",
+                            "modo_resposta": "voz",
+                            "instrucao_aluno": "Fale no microfone ou digite como prefere prosseguir."
+                        }
 
-                # Extrai os dados JSON ignorando monólogos de raciocínio da IA
-                parsed = extrair_json_resposta(content)
+                    texto_chat_limpo = sanitizar_texto_chat(parsed.get("texto_chat", ""))
+                    fala_audio_limpa = sanitizar_texto_chat(parsed.get("fala_audio_pt", ""))
 
-                if not parsed:
-                    parsed = {
-                        "fala_audio_pt": "Vamos continuar nossa aula!",
+                    if not texto_chat_limpo:
+                        texto_chat_limpo = fala_audio_limpa
+
+                    self.historico_chat.append({"role": "user", "content": mensagem_aluno})
+                    self.historico_chat.append({"role": "assistant", "content": texto_chat_limpo})
+
+                    registrar_progresso_aula(self.topico_atual, "em_andamento")
+
+                    return {
+                        "fala_audio_pt": fala_audio_limpa,
+                        "termo_en": parsed.get("termo_en", ""),
+                        "traducao_pt": parsed.get("traducao_pt", parsed.get("traducao", "")),
+                        "pronuncia_abrasileirada": parsed.get("pronuncia_abrasileirada", ""),
+                        "texto_chat": texto_chat_limpo,
+                        "modo_resposta": parsed.get("modo_resposta", "voz"),
+                        "instrucao_aluno": parsed.get("instrucao_aluno", ""),
+                        "onboarding": False
+                    }
+                elif response.status_code == 401:
+                    return {
+                        "fala_audio_pt": "A sua chave de API do OpenRouter é inválida.",
                         "termo_en": "",
                         "pronuncia_abrasileirada": "",
-                        "texto_chat": "Vamos continuar nossa lição! Como você gostaria de prosseguir?",
-                        "modo_resposta": "voz",
-                        "instrucao_aluno": "Fale no microfone ou digite como prefere prosseguir."
+                        "texto_chat": "❌ **Chave de API Inválida (401)**: Verifique sua chave no openrouter.ai e atualize na aba ⚙️ Configurações.",
+                        "modo_resposta": "texto",
+                        "instrucao_aluno": "Atualize sua chave de API.",
+                        "onboarding": False
                     }
+                else:
+                    ultimo_erro = f"Modelo {model} retornou HTTP {response.status_code}"
+                    logger.warning(ultimo_erro)
+            except Exception as e:
+                ultimo_erro = str(e)
+                logger.warning(f"Erro ao consultar modelo {model}: {e}")
 
-                texto_chat_limpo = sanitizar_texto_chat(parsed.get("texto_chat", ""))
-                fala_audio_limpa = sanitizar_texto_chat(parsed.get("fala_audio_pt", ""))
-
-                # Se texto_chat veio vazio por erro da IA, usa a fala limpa
-                if not texto_chat_limpo:
-                    texto_chat_limpo = fala_audio_limpa
-
-                # Atualiza histórico de conversa com a resposta humana (NUNCA com o JSON bruto)
-                self.historico_chat.append({"role": "user", "content": mensagem_aluno})
-                self.historico_chat.append({"role": "assistant", "content": texto_chat_limpo})
-
-                # Atualiza progresso do aluno no banco
-                registrar_progresso_aula(self.topico_atual, "em_andamento")
-
-                return {
-                    "fala_audio_pt": fala_audio_limpa,
-                    "termo_en": parsed.get("termo_en", ""),
-                    "pronuncia_abrasileirada": parsed.get("pronuncia_abrasileirada", ""),
-                    "texto_chat": texto_chat_limpo,
-                    "modo_resposta": parsed.get("modo_resposta", "voz"),
-                    "instrucao_aluno": parsed.get("instrucao_aluno", ""),
-                    "onboarding": False
-                }
-            else:
-                return {
-                    "fala_audio_pt": "Tive um problema ao me conectar com a inteligência artificial.",
-                    "termo_en": "",
-                    "pronuncia_abrasileirada": "",
-                    "texto_chat": f"⚠️ Erro ao consultar a API (HTTP {response.status_code}). Verifique sua chave nas configurações.",
-                    "modo_resposta": "texto",
-                    "instrucao_aluno": "Tente enviar novamente sua mensagem.",
-                    "onboarding": False
-                }
-        except Exception as e:
-            return {
-                "fala_audio_pt": "Ocorreu uma falha ao conectar com o serviço de inteligência artificial.",
-                "termo_en": "",
-                "pronuncia_abrasileirada": "",
-                "texto_chat": f"❌ Erro de conexão com a IA: {e}\n\n*Por favor, verifique sua conexão ou se a chave de API na aba ⚙️ Configurações está preenchida corretamente.*",
-                "modo_resposta": "texto",
-                "instrucao_aluno": "Tente novamente ou verifique as configurações.",
-                "onboarding": False
-            }
+        return {
+            "fala_audio_pt": "Tive um problema ao me conectar com a inteligência artificial.",
+            "termo_en": "",
+            "pronuncia_abrasileirada": "",
+            "texto_chat": f"⚠️ Erro ao consultar a API OpenRouter ({ultimo_erro}). Verifique sua conexão e a chave na aba ⚙️ Configurações.",
+            "modo_resposta": "texto",
+            "instrucao_aluno": "Tente enviar novamente sua mensagem.",
+            "onboarding": False
+        }
 
 teacher_engine = TeacherService()

@@ -1,5 +1,6 @@
 import os
 import json
+from .logger import logger
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -9,6 +10,7 @@ CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
 DEFAULT_CONFIG = {
     "api_key": "",
     "model": "meta-llama/llama-3.3-70b-instruct:free",
+    "voice": "pt-BR-AntonioNeural",
     "fallback_models": [
         "nvidia/nemotron-3-super-120b-a12b:free",
         "meta-llama/llama-3.3-70b-instruct:free",
@@ -29,10 +31,10 @@ def load_config() -> dict:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 saved_config = json.load(f)
                 for key, val in saved_config.items():
-                    if val:  # Substitui se houver valor salvo
+                    if val is not None and val != "":
                         config[key] = val
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Erro ao carregar configurações: {e}")
     else:
         save_config(config)
 
@@ -49,7 +51,9 @@ def save_config(config_data: dict) -> bool:
     try:
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=4, ensure_ascii=False)
+        logger.info("Configurações salvas com sucesso.")
         return True
     except Exception as e:
-        print(f"Erro ao salvar configurações: {e}")
+        logger.error(f"Erro ao salvar configurações: {e}")
         return False
+

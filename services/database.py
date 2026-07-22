@@ -2,17 +2,24 @@ import os
 import sqlite3
 import csv
 from datetime import datetime
+from .logger import logger
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_NAME = os.path.join(DATA_DIR, "estudos.db")
 
+from contextlib import contextmanager
+
+@contextmanager
 def get_connection():
-    """Retorna uma conexão com o banco de dados SQLite."""
+    """Retorna um gerenciador de contexto com conexão SQLite com fechamento garantido."""
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 def init_db():
     """Cria as tabelas do banco de dados caso não existam."""
@@ -68,7 +75,7 @@ def salvar_termo(termo_ingles: str, traducao: str, pronuncia_abrasileirada: str,
             conn.commit()
             return True
     except Exception as e:
-        print(f"Erro ao salvar termo no banco: {e}")
+        logger.error(f"Erro ao salvar termo no banco: {e}")
         return False
 
 def listar_termos(busca: str = "") -> list:
@@ -97,7 +104,7 @@ def deletar_termo(termo_id: int) -> bool:
             conn.commit()
             return True
     except Exception as e:
-        print(f"Erro ao deletar termo: {e}")
+        logger.error(f"Erro ao deletar termo: {e}")
         return False
 
 def obter_estatisticas() -> dict:
@@ -127,7 +134,7 @@ def exportar_csv(filepath: str) -> bool:
                 ])
         return True
     except Exception as e:
-        print(f"Erro ao exportar CSV: {e}")
+        logger.error(f"Erro ao exportar CSV: {e}")
         return False
 
 def obter_perfil_aluno() -> dict:
@@ -160,7 +167,7 @@ def salvar_perfil_aluno(nome: str, nivel: str = "Básico", ultimo_topico: str = 
             conn.commit()
             return True
     except Exception as e:
-        print(f"Erro ao salvar perfil do aluno: {e}")
+        logger.error(f"Erro ao salvar perfil do aluno: {e}")
         return False
 
 def registrar_progresso_aula(topico: str, status: str, nota_pronuncia: int = 0) -> bool:
@@ -176,6 +183,6 @@ def registrar_progresso_aula(topico: str, status: str, nota_pronuncia: int = 0) 
             conn.commit()
             return True
     except Exception as e:
-        print(f"Erro ao registrar progresso de aula: {e}")
+        logger.error(f"Erro ao registrar progresso de aula: {e}")
         return False
 
