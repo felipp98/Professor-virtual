@@ -115,27 +115,37 @@ def obter_estatisticas() -> dict:
         total = cursor.fetchone()["total"]
         return {"total_termos": total}
 
+def sanitizar_campo_csv(valor) -> str:
+    """Neutraliza caracteres de inicialização de fórmulas e comandos DDE em planilhas (CWE-1236)."""
+    if valor is None:
+        return ""
+    texto = str(valor)
+    if texto.lstrip().startswith(('=', '+', '-', '@', '\t', '\r')):
+        return f"'{texto}"
+    return texto
+
 def exportar_csv(filepath: str) -> bool:
-    """Exporta todos os termos cadastrados para um arquivo CSV."""
+    """Exporta todos os termos cadastrados para um arquivo CSV com encoding seguro e proteção contra Formula Injection."""
     try:
         termos = listar_termos()
-        with open(filepath, mode="w", newline="", encoding="utf-8") as f:
+        with open(filepath, mode="w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f, delimiter=";")
             writer.writerow(["ID", "Termo em Inglês", "Tradução", "Pronúncia Abrasileirada", "Exemplo no Trabalho", "Tradução do Exemplo", "Data de Cadastro"])
             for t in termos:
                 writer.writerow([
                     t["id"],
-                    t["termo_ingles"],
-                    t["traducao"],
-                    t["pronuncia_abrasileirada"],
-                    t.get("exemplo_contexto", ""),
-                    t.get("traducao_exemplo", ""),
+                    sanitizar_campo_csv(t["termo_ingles"]),
+                    sanitizar_campo_csv(t["traducao"]),
+                    sanitizar_campo_csv(t["pronuncia_abrasileirada"]),
+                    sanitizar_campo_csv(t.get("exemplo_contexto", "")),
+                    sanitizar_campo_csv(t.get("traducao_exemplo", "")),
                     t["data_cadastro"]
                 ])
         return True
     except Exception as e:
         logger.error(f"Erro ao exportar CSV: {e}")
         return False
+
 
 def obter_perfil_aluno() -> dict:
     """Retorna o perfil do aluno ou None se não cadastrado."""

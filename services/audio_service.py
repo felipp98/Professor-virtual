@@ -137,6 +137,103 @@ class AudioService:
                 pass
         self._is_speaking = False
 
+    def parar(self):
+        """Alias para parar_fala()."""
+        self.parar_fala()
+
+    def gerar_e_tocar(self, texto: str, lang: str = "en", velocity: float = 1.0, callback_fim=None):
+        """
+        Sintetiza e reproduz qualquer texto em áudio (Inglês ou Português) de forma assíncrona.
+        Ajusta a voz neural (ex: en-US-AnaNeural para Inglês, pt-BR-AntonioNeural para Português) e a velocidade.
+        """
+        if not texto or not texto.strip():
+            return
+
+        self.parar_fala()
+        self._stop_requested = False
+
+        def _thread_tocar():
+            self._is_speaking = True
+            temp_files = []
+            try:
+                if not HAS_GTTS and not HAS_EDGE_TTS:
+                    logger.warning("Recurso de áudio não disponível (edge-tts e gtts ausentes).")
+                    self._is_speaking = False
+                    return
+
+                rate_percent = int((velocity - 1.0) * 100)
+                rate_str = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
+
+                fd, path = tempfile.mkstemp(suffix=".mp3")
+                os.close(fd)
+                temp_files.append(path)
+
+                gerado = False
+                voz = "en-US-AnaNeural" if lang == "en" else load_config().get("voice", "pt-BR-AntonioNeural")
+
+                if HAS_EDGE_TTS:
+                    try:
+                        import asyncio
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            communicate = edge_tts.Communicate(texto.strip(), voz, rate=rate_str)
+                            loop.run_until_complete(communicate.save(path))
+                            gerado = True
+                        finally:
+                            loop.close()
+                    except Exception as e_edge:
+                        logger.warning(f"Fallback edge-tts ({voz}) -> gTTS ({e_edge})")
+
+                if not gerado and HAS_GTTS:
+                    tts = gTTS(text=texto.strip(), lang=lang, slow=False)
+                    tts.save(path)
+
+                if self._stop_requested:
+                    return
+
+                if not _garantir_mixer_init():
+                    return
+
+                pg = _obter_pygame()
+                pg.mixer.music.load(path)
+                pg.mixer.music.play()
+
+                while pg.mixer.music.get_busy():
+                    if self._stop_requested:
+                        pg.mixer.music.stop()
+                        break
+                    time.sleep(0.1)
+
+                if not self._stop_requested:
+                    time.sleep(0.3)
+
+            except Exception as e:
+                logger.error(f"Erro ao gerar e tocar áudio: {e}")
+            finally:
+                pg = _obter_pygame()
+                if pg and pg.mixer.get_init():
+                    try:
+                        pg.mixer.music.stop()
+                        pg.mixer.music.unload()
+                    except Exception:
+                        pass
+                for p in temp_files:
+                    try:
+                        if os.path.exists(p):
+                            os.remove(p)
+                    except Exception:
+                        pass
+                self._is_speaking = False
+                if callback_fim and not self._stop_requested:
+                    try:
+                        callback_fim()
+                    except Exception:
+                        pass
+
+        self._speaking_thread = threading.Thread(target=_thread_tocar, daemon=True)
+        self._speaking_thread.start()
+
     def falar(self, texto_pt: str, termo_en: str = "", pronuncia_abrasileirada: str = "", velocidade: float = None, callback_fim=None):
         """
         Executa a síntese de fala em uma Thread paralela para não congelar a interface.

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Language Buddy — Professor Virtual</title>
+  
+  <!-- PWA & Mobile Web App Meta Tags -->
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#18181b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Language Buddy">
+  
+  <!-- CSS -->
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <span class="brand-icon">🗣️</span>
+        <span class="brand-title">Language Buddy</span>
+      </div>
+      <div class="header-status">
+        <span class="status-dot"></span>
+        <span>Online</span>
+      </div>
+    </header>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Mensagem</div>
+
+    <!-- Main Viewport (Tabs) -->
+    <main class="main-content">
+      
+      <!-- ====================================================
+           1. ABA: PROFESSOR ALEX
+           ==================================================== -->
+      <section id="tab-teacher" class="tab-view active">
+        <div class="view-header">
+          <h1 class="view-title">🎓 Professor Alex</h1>
+          <p class="view-subtitle">Seu mentor de inglês para TI, reuniões e mercado global</p>
+        </div>
+
+        <div id="chat-messages" class="chat-container">
+          <!-- Mensagens renderizadas dinamicamente aqui -->
+        </div>
+
+        <!-- Painel Inferior de Input e Microfone -->
+        <div class="teacher-input-panel">
+          <div class="input-row">
+            <input type="text" id="teacher-text-input" class="chat-input" placeholder="Digite sua resposta ou dúvida...">
+            <button id="btn-teacher-send" class="btn-send">➔</button>
+          </div>
+          <div class="voice-action-bar">
+            <button id="btn-teacher-mic" class="btn-mic-main">
+              <span id="mic-icon">🎙️</span>
+              <span id="mic-text">Falar no Microfone</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           2. ABA: PRONÚNCIA & ESCUTA
+           ==================================================== -->
+      <section id="tab-audio" class="tab-view">
+        <div class="view-header">
+          <h1 class="view-title">🎧 Escuta & Pronúncia</h1>
+          <p class="view-subtitle">Simulações de situações reais de Dev, Daily & Negócios</p>
+        </div>
+
+        <div id="practice-cards-list">
+          <!-- Cards de prática renderizados dinamicamente -->
+        </div>
+      </section>
+
+      <!-- ====================================================
+           3. ABA: MEU CADERNO
+           ==================================================== -->
+      <section id="tab-caderno" class="tab-view">
+        <div class="view-header">
+          <h1 class="view-title">📖 Meu Caderno</h1>
+          <p id="caderno-stats" class="view-subtitle">Total: 0 termos salvos</p>
+        </div>
+
+        <div class="search-bar-row">
+          <input type="text" id="caderno-search-input" class="search-input" placeholder="🔍 Filtrar por palavra ou tradução...">
+          <button id="btn-export-csv" class="btn-action-sec">📥 CSV</button>
+        </div>
+
+        <div id="caderno-list" class="caderno-list">
+          <!-- Lista de termos renderizada dinamicamente -->
+        </div>
+      </section>
+
+      <!-- ====================================================
+           4. ABA: DECKS & PDFS
+           ==================================================== -->
+      <section id="tab-docs" class="tab-view">
+        <div class="view-header">
+          <h1 class="view-title">📚 Decks de Estudo</h1>
+          <p class="view-subtitle">Consulte e pesquise materiais em PDF</p>
+        </div>
+
+        <div class="search-bar-row">
+          <input type="text" id="docs-search-input" class="search-input" placeholder="🔍 Pesquisar em todos os PDFs...">
+        </div>
+
+        <div id="docs-list" class="docs-list">
+          <!-- Lista de PDFs renderizada dinamicamente -->
+        </div>
+      </section>
+
+      <!-- ====================================================
+           5. ABA: CONFIGURAÇÕES
+           ==================================================== -->
+      <section id="tab-config" class="tab-view">
+        <div class="view-header">
+          <h1 class="view-title">⚙️ Configurações</h1>
+          <p class="view-subtitle">Ajustes da API, modelo e vozes neurais</p>
+        </div>
+
+        <div class="config-group">
+          <label class="form-label">🔑 Chave de API do OpenRouter:</label>
+          <input type="password" id="cfg-api-key" class="form-input" placeholder="sk-or-v1-...">
+          <small id="cfg-key-status" style="color: #a1a1aa; font-size: 11px;">Status do cofre...</small>
+        </div>
+
+        <div class="config-group">
+          <label class="form-label">🤖 Modelo de Inteligência Artificial:</label>
+          <select id="cfg-model" class="form-select">
+            <option value="meta-llama/llama-3.3-70b-instruct:free">Meta Llama 3.3 70B (Gratuito)</option>
+            <option value="google/gemini-2.0-flash-exp:free">Google Gemini 2.0 Flash (Gratuito)</option>
+            <option value="deepseek/deepseek-r1:free">DeepSeek R1 (Gratuito)</option>
+            <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (Gratuito)</option>
+          </select>
+        </div>
+
+        <div class="config-group">
+          <label class="form-label">🎙️ Voz Neural do Professor:</label>
+          <select id="cfg-voice" class="form-select">
+            <option value="pt-BR-AntonioNeural">pt-BR-AntonioNeural (Masculino Neural)</option>
+            <option value="pt-BR-FranciscaNeural">pt-BR-FranciscaNeural (Feminino Neural)</option>
+            <option value="pt-BR-ThalitaNeural">pt-BR-ThalitaNeural (Feminino Suave)</option>
+          </select>
+        </div>
+
+        <button id="btn-save-config" class="btn-primary-lg">💾 Salvar Configurações</button>
+      </section>
+
+    </main>
+
+    <!-- Modal Leitor de PDF -->
+    <div id="pdf-modal" class="pdf-viewer-modal">
+      <div class="pdf-viewer-content">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 id="pdf-modal-title" style="font-size: 16px;">Visualizador de Documento</h3>
+          <button id="btn-close-pdf" class="btn-icon">✕</button>
+        </div>
+        <div id="pdf-modal-body" class="pdf-text-scroll">Carregando documento...</div>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation Bar (Mobile) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="tab-teacher">
+        <span class="nav-icon">🎓</span>
+        <span>Professor</span>
+      </button>
+      <button class="nav-item" data-tab="tab-audio">
+        <span class="nav-icon">🎧</span>
+        <span>Pronúncia</span>
+      </button>
+      <button class="nav-item" data-tab="tab-caderno">
+        <span class="nav-icon">📖</span>
+        <span>Caderno</span>
+      </button>
+      <button class="nav-item" data-tab="tab-docs">
+        <span class="nav-icon">📚</span>
+        <span>Decks</span>
+      </button>
+      <button class="nav-item" data-tab="tab-config">
+        <span class="nav-icon">⚙️</span>
+        <span>Ajustes</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- Audio Player invisível para reprodução de streaming -->
+  <audio id="global-audio-player" style="display: none;"></audio>
+
+  <!-- JavaScript -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -13,6 +13,16 @@ O **Language Buddy** é um aplicativo desktop completo e moderno desenvolvido em
 - **Dicas de Articulação Língua/Boca**: Cada explicação traz uma dica física prática da posição da língua/boca e macetes mentais para destravar a fala.
 - **Storytelling de Escritório**: Vocabulário contextualizado com reuniões reais, daily standups, prazos, pull requests e e-mails de trabalho.
 
+### 2. 🎧 Treino de Escuta & Pronúncia Guiada (Método de 6 Etapas)
+- **1. Escuta Cega (Blind Listening)**: Audição do texto completo em inglês sem ler a transcrição, para medir a absorção natural inicial.
+- **2. Áudio + Texto & Tradução**: Audição acompanhada do texto em inglês e da tradução completa em português.
+- **3. Análise Frase por Frase**: Desconstrução frase por frase com áudio individual, pronúncia fonética abrasileirada e botão direto para salvar qualquer frase no Caderno de Estudos.
+- **4. Áudio + Texto em Inglês**: Audição acompanhada exclusivamente do texto em inglês (sem tradução visual) para fixação direta de contexto.
+- **5. Prática de Fala & Shadowing**: Gravador de voz em tempo real que compara sua pronúncia falada via microfone com a frase original e calcula uma pontuação de precisão de 0 a 100%.
+- **6. Escuta Final & Autoavaliação**: Teste cego final + registro do progresso de aprendizado no histórico da aplicação.
+- **✨ Gerador de Lições por IA**: Crie novas lições instantâneas sobre qualquer tema técnico (ex: *Code Review*, *Incident Escalation*, *Salary Negotiation*).
+
+
 
 ### 2. 🔎 Consultar IA ("Abrasileirar Termos")
 - Tradução imediata e contextualizada para o ambiente corporativo.
