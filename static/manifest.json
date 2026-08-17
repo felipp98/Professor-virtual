@@ -1,5 +1,5 @@
 {
-  "id": "/",
+  "id": "language-buddy-pwa",
   "name": "Language Buddy — Professor Virtual",
   "short_name": "Language Buddy",
   "description": "Seu Professor Virtual de Inglês focado em TI e Mercado Global",
@@ -10,6 +10,7 @@
   "theme_color": "#18181b",
   "orientation": "portrait-primary",
   "lang": "pt-BR",
+  "dir": "ltr",
   "categories": [
     "education",
     "productivity"
@@ -19,13 +20,25 @@
       "src": "/static/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/static/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
