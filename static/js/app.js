@@ -51,11 +51,12 @@ function initNetworkMonitor() {
 
 function initPWA() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/static/sw.js")
+    navigator.serviceWorker.register("/sw.js")
       .then(() => console.log("[PWA] Service Worker ativo com suporte offline."))
       .catch((err) => console.log("[PWA] Falha no Service Worker:", err));
   }
 }
+
 
 // ----------------------------------------------------
 // 2. NAVEGAÇÃO POR ABAS (BOTTOM NAVIGATION BAR)

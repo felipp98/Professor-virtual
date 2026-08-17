@@ -297,8 +297,33 @@ def config_salvar(req: SalvarConfigRequest):
 
 
 # ----------------------------------------------------
-# SERVE ARQUIVOS ESTÁTICOS DO FRONTEND PWA
+# SERVE ARQUIVOS ESTÁTICOS E PWA NA RAIZ
 # ----------------------------------------------------
+@app.get("/manifest.json")
+def serve_manifest():
+    manifest_file = os.path.join(STATIC_DIR, "manifest.json")
+    if os.path.exists(manifest_file):
+        return FileResponse(manifest_file, media_type="application/manifest+json")
+    raise HTTPException(status_code=404, detail="Manifest não encontrado")
+
+@app.get("/sw.js")
+def serve_sw():
+    sw_file = os.path.join(STATIC_DIR, "sw.js")
+    if os.path.exists(sw_file):
+        return FileResponse(
+            sw_file, 
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"}
+        )
+    raise HTTPException(status_code=404, detail="Service Worker não encontrado")
+
+@app.get("/favicon.ico")
+def serve_favicon():
+    icon_file = os.path.join(STATIC_DIR, "icons", "icon-192.png")
+    if os.path.exists(icon_file):
+        return FileResponse(icon_file, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Favicon não encontrado")
+
 if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -317,6 +342,7 @@ def index_html():
         </body>
     </html>
     """)
+
 
 def obter_ip_local():
     """Descobre o IP da máquina na rede local para facilitar acesso pelo celular."""
